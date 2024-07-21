@@ -1,98 +1,60 @@
-import gleam/bit_array
-import gleam/bytes_builder
 import gleam/erlang/process.{type Subject}
-import gleam/http
-import gleam/http/request.{type Request}
-import gleam/http/response.{type Response}
+import gleam/function
 import gleam/io
-import gleam/iterator
+import gleam/list
 import gleam/otp/actor
-import gleam/result
-import mist.{type Connection, type ResponseData}
 
-pub type Message(element) {
-  Shutdown
-  Submit(element)
-  Read(Subject(List(element)))
-}
-
-fn handle_message(
-  message: Message(e),
-  stack: List(e),
-) -> actor.Next(Message(e), List(e)) {
-  case message {
-    Shutdown -> actor.Stop(process.Normal)
-    Submit(value) -> actor.continue([value, ..stack])
-    Read(client) -> {
-      process.send(client, stack)
-      actor.continue(stack)
-    }
-  }
+type ControllerMessage(a) {
+  ClientConnect(client: Subject(a))
+  ClientDisconect(client: Subject(a))
+  Message(message: a)
 }
 
 pub fn main() {
-  let assert Ok(messages) = actor.start([], handle_message)
-
-  let bad_request =
-    response.set_body(
-      response.new(400),
-      mist.Bytes(bytes_builder.from_string("Bad request")),
-    )
-  let server_error =
-    response.set_body(
-      response.new(500),
-      mist.Bytes(bytes_builder.from_string("Internal server error")),
-    )
-
-  let assert Ok(_) =
-    fn(req: Request(Connection)) -> Response(ResponseData) {
-      case req.method {
-        http.Post -> {
-          result.unwrap(
-            {
-              use req <- result.try(
-                mist.read_body(req, 1024)
-                |> result.replace_error(Nil),
-              )
-              use message <- result.try(req.body |> bit_array.to_string)
-
-              io.println("Received: " <> message)
-              process.send(messages, Submit(message))
-
-              response.new(200)
-              |> response.set_body(
-                mist.Bytes(bytes_builder.from_string("Subitted: " <> message)),
-              )
-              |> Ok
-            },
-            bad_request,
-          )
+  let assert Ok(controller) =
+    actor.start([], fn(msg, clients) {
+      case msg {
+        ClientConnect(client) -> [client, ..clients] |> actor.continue
+        ClientDisconect(client) ->
+          clients
+          |> list.filter(fn(c) { c != client })
+          |> actor.continue
+        Message(message) -> {
+          clients |> list.each(fn(client) { client |> process.send(message) })
+          clients |> actor.continue
         }
-        _ ->
-          result.unwrap(
-            {
-              use lst <- result.try(process.try_call(messages, Read, 10))
-
-              let body =
-                iterator.fold(
-                  iterator.from_list(lst),
-                  bytes_builder.new(),
-                  fn(builder, message) {
-                    bytes_builder.append_string(builder, message <> "\n")
-                  },
-                )
-
-              response.new(200)
-              |> response.set_body(mist.Bytes(body))
-              |> Ok
-            },
-            server_error,
-          )
       }
-    }
-    |> mist.new
-    |> mist.port(3000)
-    |> mist.start_http
+    })
 
-  process.sleep_forever()
+  let monitor =
+    process.start(
+      fn() {
+        let client1 = process.new_subject()
+        process.send(controller, ClientConnect(client1))
+        process.send(controller, Message("From child process"))
+
+        let assert Ok(msg) = process.receive(client1, 100)
+        io.println("Client1: " <> msg)
+
+        let assert Ok(msg) = process.receive(client1, 100)
+        io.println("Client1: " <> msg)
+      },
+      False,
+    )
+    |> process.monitor_process
+
+  let client2 = process.new_subject()
+  process.send(controller, ClientConnect(client2))
+
+  let assert Ok(msg) = process.receive(client2, 100)
+  io.println("Client2: " <> msg)
+
+  process.send(controller, Message("From main process"))
+
+  let assert Ok(msg) = process.receive(client2, 100)
+  io.println("Client2: " <> msg)
+
+  process.new_selector()
+  |> process.selecting_process_down(monitor, function.identity)
+  |> process.select_forever
 }
