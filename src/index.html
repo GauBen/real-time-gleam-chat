@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mist Realtime Chat</title>
+    <style>
+      body {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        font-family: system-ui;
+        margin: 0;
+      }
+
+      header,
+      form {
+        background: #ffaff3;
+        overflow: hidden;
+        padding: 1rem;
+      }
+
+      input,
+      button {
+        padding: 0.5rem;
+      }
+
+      article {
+        background: #ccc;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+      }
+
+      article:first-child {
+        margin-top: auto;
+      }
+
+      #messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-start;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1 style="margin: 0">Mist Realtime Chat</h1>
+    </header>
+    <div id="messages"></div>
+    <form action="/post" method="post" style="display: flex; gap: 0.5rem">
+      <input type="text" name="message" style="flex: 1" required maxlength="128" />
+      <button type="submit">Send</button>
+    </form>
+    <script>
+      const messages = document.querySelector('#messages');
+      const source = new EventSource('/sse');
+      source.onmessage = function (event) {
+        const message = document.createElement('article');
+        message.append(event.data);
+        messages.append(message);
+        messages.scrollTop = messages.scrollHeight;
+      };
+
+      const form = document.querySelector('form');
+      form.onsubmit = async function (event) {
+        event.preventDefault();
+        const formData = new FormData(form);
+        await fetch('/post', { method: 'POST', body: formData.get('message') });
+        form.reset();
+      };
+    </script>
+  </body>
+</html>
