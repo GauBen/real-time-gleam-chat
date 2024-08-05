@@ -38,20 +38,20 @@ fn pubsub_loop(message: PubSubMessage, clients: List(Subject(String))) {
     // When the pubsub receives a Subscribe message with a client in it,
     // continue running the actor loop with the client added to the state.
     Subscribe(client) -> {
-      io.println("[Controller] New client connected")
+      io.println("+ New client connected")
       [client, ..clients] |> actor.continue
     }
     // When the pubsub receives a Unsubscribe message with a client in it,
     // produce a new state with the client removed and continue running.
     Unsubscribe(client) -> {
-      io.println("[Controller] A client disconnected")
+      io.println("- A client disconnected")
       clients
       |> list.filter(fn(c) { c != client })
       |> actor.continue
     }
     // Finally, when the pubsub receives a Message, forward it to clients.
     Message(message) -> {
-      io.println("[Controller] Forwarding message to clients: " <> message)
+      io.println("> Forwarding message to clients: " <> message)
       clients |> list.each(process.send(_, message))
       clients |> actor.continue
     }
