@@ -15,41 +15,41 @@ import gleam/string_builder
 import mist.{type Connection}
 import simplifile
 
-/// Message types for the controller actor.
+/// Message types for the pubsub actor.
 ///
-/// The controller actor manages the clients listening for messages and
+/// The pubsub actor manages the clients listening for messages and
 /// forwards messages to all connected clients.
-type ControllerMessage {
+type PubSubMessage {
   /// A new client has connected and wants to receive messages.
-  Connect(Subject(String))
+  Subscribe(Subject(String))
   /// A client has disconnected and should no longer receive messages.
-  Disconnect(Subject(String))
+  Unsubscribe(Subject(String))
   /// A message to forward to all connected clients.
   Message(String)
 }
 
-/// This is the controller loop function, which receives messages and produces
-/// a new state. The controller runs in a separate process.
+/// This is the pubsub loop function, which receives messages and produces
+/// a new state. The pubsub runs in a separate process.
 ///
 /// In Gleam, variables are immutable, so we rely on the Actor model to manage
 /// state. In this case, the state is a list of connected clients.
-fn controller_loop(message: ControllerMessage, clients: List(Subject(String))) {
+fn pubsub_loop(message: PubSubMessage, clients: List(Subject(String))) {
   case message {
-    // When the controller receives a Connect message with a client in it,
+    // When the pubsub receives a Subscribe message with a client in it,
     // continue running the actor loop with the client added to the state.
-    Connect(client) -> {
+    Subscribe(client) -> {
       io.println("[Controller] New client connected")
       [client, ..clients] |> actor.continue
     }
-    // When the controller receives a Disconnect message with a client in it,
+    // When the pubsub receives a Unsubscribe message with a client in it,
     // produce a new state with the client removed and continue running.
-    Disconnect(client) -> {
+    Unsubscribe(client) -> {
       io.println("[Controller] A client disconnected")
       clients
       |> list.filter(fn(c) { c != client })
       |> actor.continue
     }
-    // Finally, when the controller receives a Message, forward it to clients.
+    // Finally, when the pubsub receives a Message, forward it to clients.
     Message(message) -> {
       io.println("[Controller] Forwarding message to clients: " <> message)
       clients |> list.each(process.send(_, message))
@@ -65,8 +65,8 @@ fn new_response(status: Int, body: String) {
 }
 
 pub fn main() {
-  // Start the controller with an empty list of clients in its own process.
-  let assert Ok(controller) = actor.start([], controller_loop)
+  // Start the pubsub with an empty list of clients in its own process.
+  let assert Ok(pubsub) = actor.start([], pubsub_loop)
 
   // Define some common responses.
   let bad_request = new_response(400, "Bad request")
@@ -88,7 +88,7 @@ pub fn main() {
             internal_error,
           )
 
-        // On 'POST /post', read the body and send it to the controller.
+        // On 'POST /post', read the body and send it to the pubsub.
         http.Post, "/post" ->
           result.unwrap(
             {
@@ -104,8 +104,8 @@ pub fn main() {
               // Transform the bytes into a string.
               use message <- result.try(request.body |> bit_array.to_string)
 
-              // Send the message to the controller.
-              process.send(controller, Message(message))
+              // Send the message to the pubsub.
+              process.send(pubsub, Message(message))
 
               // Respond with a success message.
               new_response(200, "Submitted: " <> message) |> Ok
@@ -114,7 +114,7 @@ pub fn main() {
           )
 
         // On 'GET /sse', start a Server-Sent Events (SSE) connection.
-        // The SSE loop runs in a separate process, we will use the controller
+        // The SSE loop runs in a separate process, we will use the pubsub
         // to send and receive messages.
         http.Get, "/sse" ->
           mist.server_sent_events(
@@ -125,8 +125,8 @@ pub fn main() {
               // Create a new subject for the client to receive messages.
               let client = process.new_subject()
 
-              // Send this new client to the controller.
-              process.send(controller, Connect(client))
+              // Send this new client to the pubsub.
+              process.send(pubsub, Subscribe(client))
 
               // Define on what messages the SSE loop function should run:
               // on every message send to the `client` subject.
@@ -155,7 +155,7 @@ pub fn main() {
                 Ok(_) -> actor.continue(client)
                 // If it fails, disconnect the client and stop the process.
                 Error(_) -> {
-                  process.send(controller, Disconnect(client))
+                  process.send(pubsub, Unsubscribe(client))
                   actor.Stop(process.Normal)
                 }
               }
