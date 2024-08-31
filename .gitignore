@@ -1,4 +1,5 @@
 *.beam
 *.ez
 /build
+/real_time_chat
 erl_crash.dump

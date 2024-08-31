@@ -1,4 +1,4 @@
-name = "realtime_chat"
+name = "real_time_chat"
 version = "1.0.0"
 gleam = ">= 0.32.0"
 dev-dependencies = { gleescript = ">= 1.4.0 and < 2.0.0"}

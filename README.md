@@ -1,4 +1,4 @@
-# Realtime Chat
+# Real-Time Chat
 
 Start the server with `gleam run` and that's it! ✨
 

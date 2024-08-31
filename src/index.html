@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mist Realtime Chat</title>
+    <title>Real-Time Gleam Chat</title>
     <style>
       body {
         height: 100vh;
@@ -26,7 +26,7 @@
       }
 
       article {
-        background: #ccc;
+        background: #a6f0fc;
         padding: 0.5rem;
         border-radius: 0.5rem;
       }
@@ -41,35 +41,44 @@
         padding: 1rem;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
         align-items: flex-start;
+        gap: 0.5rem;
       }
     </style>
   </head>
   <body>
     <header>
-      <h1 style="margin: 0">Mist Realtime Chat</h1>
+      <h1 style="margin: 0">Real-Time Gleam Chat</h1>
     </header>
-    <div id="messages"></div>
+    <div id="messages">
+      <!-- Messages goes here -->
+    </div>
     <form action="/post" method="post" style="display: flex; gap: 0.5rem">
       <input type="text" name="message" style="flex: 1" required maxlength="128" />
       <button type="submit">Send</button>
     </form>
     <script>
+      // Open a connection to the SSE endpoint.
       const messages = document.querySelector('#messages');
       const source = new EventSource('/sse');
-      source.onmessage = function (event) {
+      source.onmessage = (event) => {
+        // When a message is received, insert it at the end.
         const message = document.createElement('article');
         message.append(event.data);
         messages.append(message);
+        // Scroll to the end of the container.
         messages.scrollTop = messages.scrollHeight;
       };
 
+      // Handle form submission client-side.
       const form = document.querySelector('form');
-      form.onsubmit = async function (event) {
+      form.onsubmit = async (event) => {
+        // Prevent the browser from navigating to /post.
         event.preventDefault();
-        const formData = new FormData(form);
-        await fetch('/post', { method: 'POST', body: formData.get('message') });
+        // Send the message to the POST endpoint.
+        const body = new FormData(form).get('message');
+        await fetch('/post', { method: 'POST', body });
+        // Clear the message field.
         form.reset();
       };
     </script>
