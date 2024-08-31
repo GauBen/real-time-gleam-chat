@@ -50,35 +50,38 @@
     <header>
       <h1 style="margin: 0">Real-Time Gleam Chat</h1>
     </header>
+
     <div id="messages">
-      <!-- Messages goes here -->
+      <!-- Messages go here -->
     </div>
+
     <form action="/post" method="post" style="display: flex; gap: 0.5rem">
       <input type="text" name="message" style="flex: 1" required maxlength="128" />
       <button type="submit">Send</button>
     </form>
+
     <script>
-      // Open a connection to the SSE endpoint.
+      // Open a connection to the SSE endpoint
       const messages = document.querySelector('#messages');
       const source = new EventSource('/sse');
       source.onmessage = (event) => {
-        // When a message is received, insert it at the end.
+        // When a message is received, insert it at the end
         const message = document.createElement('article');
         message.append(event.data);
         messages.append(message);
-        // Scroll to the end of the container.
+        // Scroll to the end of the container
         messages.scrollTop = messages.scrollHeight;
       };
 
-      // Handle form submission client-side.
+      // Handle form submission client-side
       const form = document.querySelector('form');
       form.onsubmit = async (event) => {
-        // Prevent the browser from navigating to /post.
+        // Prevent the browser from navigating to /post
         event.preventDefault();
-        // Send the message to the POST endpoint.
+        // Send the message to the POST endpoint
         const body = new FormData(form).get('message');
         await fetch('/post', { method: 'POST', body });
-        // Clear the message field.
+        // Clear the message field
         form.reset();
       };
     </script>

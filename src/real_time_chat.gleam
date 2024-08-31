@@ -24,7 +24,7 @@ type PubSubMessage {
   /// A client has disconnected and should no longer receive messages.
   Unsubscribe(client: Subject(String))
   /// A message to forward to all connected clients.
-  Message(String)
+  Publish(String)
 }
 
 /// This is the pubsub loop function, which receives messages and produces
@@ -35,21 +35,21 @@ type PubSubMessage {
 fn pubsub_loop(message: PubSubMessage, clients: List(Subject(String))) {
   case message {
     // When the pubsub receives a Subscribe message with a client in it,
-    // continue running the actor loop with the client added to the state.
+    // continue running the actor loop with the client added to the state
     Subscribe(client) -> {
       io.println("➕ Client connected")
       [client, ..clients] |> actor.continue
     }
     // When the pubsub receives a Unsubscribe message with a client in it,
-    // produce a new state with the client removed and continue running.
+    // produce a new state with the client removed and continue running
     Unsubscribe(client) -> {
       io.println("➖ Client disconnected")
       clients
       |> list.filter(fn(c) { c != client })
       |> actor.continue
     }
-    // Finally, when the pubsub receives a Message, forward it to clients.
-    Message(message) -> {
+    // Finally, when the pubsub receives a message, forward it to clients
+    Publish(message) -> {
       io.println("💬 " <> message)
       clients |> list.each(process.send(_, message))
       clients |> actor.continue
@@ -64,16 +64,16 @@ fn new_response(status: Int, body: String) {
 }
 
 pub fn main() {
-  // Start the pubsub with an empty list of clients in its own process.
+  // Start the pubsub with an empty list of clients in its own process
   let assert Ok(pubsub) = actor.start([], pubsub_loop)
 
   let assert Ok(_) =
     mist.new(
-      // HTTP server handler: it takes a request and returns a response.
+      // HTTP server handler: it takes a request and returns a response
       fn(request) {
-        // Basic router matching the request method and path of the request.
+        // Basic router matching the request method and path of the request
         let response = case request.method, request.path {
-          // On 'GET /', read the index.html file and return it.
+          // On 'GET /', read the index.html file and return it
           http.Get, "/" -> {
             use index <- result.try(
               simplifile.read("src/index.html")
@@ -82,15 +82,15 @@ pub fn main() {
             new_response(200, index) |> Ok
           }
 
-          // On 'POST /post', read the body and send it to the pubsub.
+          // On 'POST /post', read the body and send it to the pubsub
           http.Post, "/post" -> {
-            // Read the first 128 bytes of the request.
+            // Read the first 128 bytes of the request
             use request <- result.try(
               request
               |> mist.read_body(128)
               |> result.replace_error("Could not read request body."),
             )
-            // Transform the bytes into a string.
+            // Transform the bytes into a string
             use message <- result.try(
               request.body
               |> bit_array.to_string
@@ -99,10 +99,10 @@ pub fn main() {
               ),
             )
 
-            // Send the message to the pubsub.
-            process.send(pubsub, Message(message))
+            // Send the message to the pubsub
+            process.send(pubsub, Publish(message))
 
-            // Respond with a success message.
+            // Respond with a success message
             new_response(200, "Submitted: " <> message) |> Ok
           }
 
@@ -110,25 +110,25 @@ pub fn main() {
           // The SSE loop runs in a separate process, we will use the pubsub
           // to send and receive messages.
           http.Get, "/sse" ->
-            request
-            |> mist.server_sent_events(
+            mist.server_sent_events(
+              request,
               response.new(200),
-              // Initialization function of the SSE loop.
+              // Initialization function of the SSE loop
               init: fn() {
-                // Create a new subject for the client to receive messages.
+                // Create a new subject for the client to receive messages
                 let client = process.new_subject()
 
-                // Send this new client to the pubsub.
+                // Send this new client to the pubsub
                 process.send(pubsub, Subscribe(client))
 
                 // Define on what messages the SSE loop function should run:
-                // on every message send to the `client` subject.
+                // on every message send to the `client` subject
                 let selector =
                   process.new_selector()
                   |> process.selecting(client, function.identity)
 
                 // Start the loop with the client as state and a selector
-                // pointing to the client subject.
+                // pointing to the client subject
                 actor.Ready(client, selector)
               },
               // This loop function is called every time the `client` subject
@@ -137,16 +137,16 @@ pub fn main() {
               // SSE connection, and the third is the loop state, which, in this
               // case is always the client subject.
               loop: fn(message, connection, client) {
-                // Forward the message to the web client.
+                // Forward the message to the web client
                 case
                   mist.send_event(
                     connection,
                     message |> string_builder.from_string |> mist.event,
                   )
                 {
-                  // If it succeeds, continue the process.
+                  // If it succeeds, continue the process
                   Ok(_) -> actor.continue(client)
-                  // If it fails, disconnect the client and stop the process.
+                  // If it fails, disconnect the client and stop the process
                   Error(_) -> {
                     process.send(pubsub, Unsubscribe(client))
                     actor.Stop(process.Normal)
@@ -156,11 +156,11 @@ pub fn main() {
             )
             |> Ok
 
-          // In case of any other request, return a 404.
+          // In case of any other request, return a 404
           _, _ -> new_response(404, "Not found") |> Ok
         }
 
-        // Simple error-handling mechanism.
+        // Simple error-handling mechanism
         case response {
           Ok(response) -> response
           Error(error) -> {
@@ -170,10 +170,10 @@ pub fn main() {
         }
       },
     )
-    // Create and start an HTTP server using this handler.
+    // Create and start an HTTP server using this handler
     |> mist.port(3000)
     |> mist.start_http
 
-  // Everything runs in separate processes, keep the main process alive.
+  // Everything runs in separate processes, keep the main process alive
   process.sleep_forever()
 }
