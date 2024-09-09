@@ -84,7 +84,8 @@ pub fn main() {
 
           // On 'POST /post', read the body and send it to the pubsub
           http.Post, "/post" -> {
-            // Read the first 128 bytes of the request
+            // Read the first 128 bytes of the request, as it's the limit set
+            // in the frontend (<input maxlength="128">)
             use request <- result.try(
               request
               |> mist.read_body(128)
