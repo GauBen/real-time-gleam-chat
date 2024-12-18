@@ -2,9 +2,6 @@ name: test
 
 on:
   push:
-    branches:
-      - master
-      - main
   pull_request:
 
 jobs:
@@ -12,10 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: erlef/setup-beam@v1
-        with:
-          otp-version: '27'
-          gleam-version: '1'
-          rebar3-version: '3'
+      - uses: pkgxdev/dev@v0
       - run: gleam deps download
       - run: gleam run -m gleescript

@@ -1,7 +1,7 @@
 //// A simple example of using Server-Sent Events (SSE) in Gleam.
 
 import gleam/bit_array
-import gleam/bytes_builder
+import gleam/bytes_tree
 import gleam/erlang/process.{type Subject}
 import gleam/function
 import gleam/http
@@ -10,7 +10,7 @@ import gleam/io
 import gleam/list
 import gleam/otp/actor
 import gleam/result
-import gleam/string_builder
+import gleam/string_tree
 import mist
 import simplifile
 
@@ -60,7 +60,7 @@ fn pubsub_loop(message: PubSubMessage, clients: List(Subject(String))) {
 /// Create a new HTTP response with the given status code and body.
 fn new_response(status: Int, body: String) {
   response.new(status)
-  |> response.set_body(body |> bytes_builder.from_string |> mist.Bytes)
+  |> response.set_body(body |> bytes_tree.from_string |> mist.Bytes)
 }
 
 pub fn main() {
@@ -142,7 +142,7 @@ pub fn main() {
                 case
                   mist.send_event(
                     connection,
-                    message |> string_builder.from_string |> mist.event,
+                    message |> string_tree.from_string |> mist.event,
                   )
                 {
                   // If it succeeds, continue the process

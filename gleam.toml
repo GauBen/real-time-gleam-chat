@@ -1,12 +1,12 @@
 name = "real_time_chat"
 version = "1.0.0"
-gleam = ">= 0.32.0"
+gleam = ">= 1.6.2"
 dev-dependencies = { gleescript = ">= 1.4.0 and < 2.0.0"}
 
 [dependencies]
-gleam_stdlib = ">= 0.34.0 and < 2.0.0"
-mist = ">= 1.2.0 and < 2.0.0"
-gleam_erlang = ">= 0.25.0 and < 1.0.0"
-gleam_http = ">= 3.6.0 and < 4.0.0"
-gleam_otp = ">= 0.10.0 and < 1.0.0"
-simplifile = ">= 2.0.1 and < 3.0.0"
+gleam_stdlib = ">= 0.48.0 and < 2.0.0"
+mist = ">= 4.0.1 and < 5.0.0"
+gleam_erlang = ">= 0.33.0 and < 1.0.0"
+gleam_http = ">= 3.7.2 and < 4.0.0"
+gleam_otp = ">= 0.16.0 and < 1.0.0"
+simplifile = ">= 2.2.0 and < 3.0.0"
